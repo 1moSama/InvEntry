@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inventory">
+<meta name="theme-color" content="#2b5797">
+<title>库存管理</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "Meiryo", -apple-system, sans-serif; margin: 0; background: #f4f6f8; color: #222; }
+  header { background: #2b5797; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; }
+  #lang { background: #2b5797; color: #fff; border: 1px solid #fff; padding: 5px 6px; }
+  #tabs { display: flex; gap: 8px; }
+  .tab { background: transparent; border: 1px solid #fff; color: #fff; padding: 6px 16px; cursor: pointer; border-radius: 4px; }
+  .tab.active { background: #fff; color: #2b5797; }
+  .tab .ic { display: none; }
+  #status { background: #fff8e1; border-bottom: 1px solid #f0d78c; padding: 8px 20px; font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #status.ok { background: #e8f5e9; border-color: #a5d6a7; }
+  #st-text { flex: 1; }
+  .st-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  main { padding: 20px; max-width: 1100px; margin: auto; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; align-items: center; }
+  input, select, button { font-size: 14px; padding: 6px 8px; border: 1px solid #bbb; border-radius: 4px; font-family: inherit; }
+  button { cursor: pointer; background: #fff; }
+  button.primary { background: #2b5797; color: #fff; border-color: #2b5797; }
+  button.danger { color: #c0392b; border-color: #c0392b; }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  th, td { border-bottom: 1px solid #e3e3e3; padding: 8px; text-align: left; }
+  th { background: #eef1f5; white-space: nowrap; }
+  th[data-sort] { cursor: pointer; user-select: none; }
+  td.num { text-align: right; }
+  .tag { display: inline-block; background: #e1ecf7; color: #2b5797; padding: 2px 8px; border-radius: 10px; font-size: 12px; white-space: nowrap; }
+  .low { color: #c0392b; font-weight: bold; }
+  .qty-box { display: flex; gap: 4px; align-items: center; }
+  .qty-box input { width: 80px; text-align: right; }
+  .summary { color: #666; font-size: 13px; margin: 8px 0; }
+  .muted { color: #888; font-size: 12px; }
+  .empty { text-align: center; color: #999; padding: 24px; }
+  .hidden { display: none !important; }
+  #add-box > summary { font-weight: bold; cursor: pointer; padding: 4px 0 10px; }
+  .ui-switch { text-align: center; padding: 16px; font-size: 12px; }
+  .ui-switch a { color: #888; }
+  #toast { position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%); background: rgba(0,0,0,.8); color: #fff;
+           padding: 10px 18px; border-radius: 20px; font-size: 14px; z-index: 99; max-width: 90%; text-align: center; }
+
+  /* ===================== 手机界面 ===================== */
+  body.mobile { font-size: 16px; }
+  body.mobile input, body.mobile select, body.mobile button { font-size: 16px; padding: 10px; }
+  body.mobile #lang { padding: 4px 6px; }
+  body.mobile header { padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top)); }
+  body.mobile #tabs { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-top: 1px solid #ddd; gap: 0; z-index: 10;
+                      padding-bottom: env(safe-area-inset-bottom); }
+  body.mobile .tab { flex: 1; border: none; border-radius: 0; color: #666; padding: 8px 0 6px; font-size: 13px; background: none; }
+  body.mobile .tab.active { color: #2b5797; font-weight: bold; background: none; }
+  body.mobile .tab .ic { display: block; font-size: 20px; }
+  body.mobile #status { padding: 8px 12px; font-size: 12px; }
+  body.mobile #st-text { flex-basis: 100%; }
+  body.mobile .st-btns { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  body.mobile main { padding: 12px 12px calc(80px + env(safe-area-inset-bottom)); }
+  body.mobile .bar { flex-direction: column; align-items: stretch; }
+  body.mobile .bar > * { width: 100% !important; }
+  body.mobile .bar label { padding: 4px 0; }
+  body.mobile #add-box { padding: 10px 12px; }
+  .card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card .row1 { display: flex; gap: 8px; align-items: center; }
+  .card .row1 .nm { flex: 1; font-weight: bold; word-break: break-all; }
+  .card .qty { font-size: 22px; font-weight: bold; white-space: nowrap; }
+  .card .qty small { font-size: 13px; font-weight: normal; color: #666; }
+  .card .sub { color: #777; font-size: 13px; margin-top: 6px; word-break: break-all; }
+  .stepper { display: flex; gap: 8px; margin-top: 10px; }
+  .stepper button { width: 56px; font-size: 22px; padding: 6px 0; }
+  .stepper input { flex: 1; min-width: 0; text-align: center; font-size: 20px !important; }
+  .card details { margin-top: 8px; }
+  .card summary { color: #2b5797; padding: 6px 0; cursor: pointer; }
+  .fields label { display: block; font-size: 12px; color: #666; margin-top: 8px; }
+  .fields input { width: 100%; }
+  .fields .danger { width: 100%; margin-top: 12px; }
+  .hist-card { background: #fff; border-radius: 8px; padding: 8px 12px; margin-bottom: 6px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title"></h1>
+  <select id="lang" aria-label="Language">
+    <option value="zh">中文</option>
+    <option value="ja">日本語</option>
+    <option value="en">English</option>
+  </select>
+  <nav id="tabs">
+    <button class="tab active" data-page="view"><span class="ic">🔍</span><span data-i18n="tab_view"></span></button>
+    <button class="tab" data-page="edit"><span class="ic">✏️</span><span data-i18n="tab_edit"></span></button>
+    <button class="tab" data-page="hist"><span class="ic">🕘</span><span data-i18n="tab_hist"></span></button>
+  </nav>
+</header>
+
+<div id="status">
+  <span id="st-text"></span>
+  <div class="st-btns">
+    <button id="btn-share" data-i18n="share"></button>
+    <button id="btn-import" data-i18n="import"></button>
+    <button id="btn-pick"></button>
+    <button id="btn-perm" class="hidden" data-i18n="perm"></button>
+    <button id="btn-sync" class="hidden" data-i18n="sync"></button>
+  </div>
+  <input type="file" id="file-import" multiple class="hidden">
+</div>
+
+<main>
+  <!-- ===== 检视 ===== -->
+  <section id="page-view">
+    <div class="bar">
+      <input id="v-search" type="search" data-i18n-ph="ph_search" style="flex:1;min-width:200px">
+      <select id="v-cat"></select>
+      <select id="v-sort" class="m-only">
+        <option value="category:1" data-i18n="sort_cat"></option>
+        <option value="name:1" data-i18n="sort_name"></option>
+        <option value="qty:1" data-i18n="sort_qty_asc"></option>
+        <option value="qty:-1" data-i18n="sort_qty_desc"></option>
+        <option value="updated:-1" data-i18n="sort_updated"></option>
+      </select>
+      <label><input type="checkbox" id="v-low"> <span data-i18n="low_only"></span></label>
+    </div>
+    <div class="summary" id="v-summary"></div>
+    <div id="v-list"></div>
+  </section>
+
+  <!-- ===== 编辑 ===== -->
+  <section id="page-edit" class="hidden">
+    <details id="add-box" class="card" open>
+      <summary data-i18n="add_title"></summary>
+      <div class="bar">
+        <input id="n-category" data-i18n-ph="ph_category" list="cat-list">
+        <datalist id="cat-list"></datalist>
+        <input id="n-name" data-i18n-ph="ph_name">
+        <input id="n-qty" type="number" inputmode="numeric" data-i18n-ph="col_qty" value="0" style="width:90px">
+        <input id="n-unit" data-i18n-ph="col_unit" style="width:80px">
+        <input id="n-min" type="number" inputmode="numeric" data-i18n-ph="col_min" style="width:100px">
+        <input id="n-note" data-i18n-ph="col_note">
+        <button class="primary" id="n-add" data-i18n="add"></button>
+      </div>
+    </details>
+    <div class="bar">
+      <input id="e-search" type="search" data-i18n-ph="ph_filter" style="flex:1;min-width:200px">
+      <select id="e-cat"></select>
+      <button id="btn-csv" data-i18n="csv"></button>
+    </div>
+    <div id="e-list"></div>
+  </section>
+
+  <!-- ===== 历史 ===== -->
+  <section id="page-hist" class="hidden">
+    <div class="bar">
+      <input id="h-search" type="search" data-i18n-ph="ph_hist" style="flex:1;min-width:200px">
+    </div>
+    <div class="summary" id="h-summary"></div>
+    <div id="h-list"></div>
+  </section>
+
+  <div class="ui-switch"><a href="#" id="ui-toggle"></a></div>
+</main>
+<div id="toast" class="hidden"></div>
+
+<script>
+/* =====================================================================
+   多语言：所有界面文字都在这里，按 key 取用；{x} 为占位符
+   ===================================================================== */
+const I18N = {
+  zh: {
+    title: "库存管理", tab_view: "检视", tab_edit: "编辑", tab_hist: "历史",
+    share: "分享日志", import: "导入日志", pick: "选择同步文件夹", change_folder: "更换文件夹",
+    perm: "重新授权文件夹", sync: "立即同步",
+    ph_search: "搜索 品名 / 大类 / 备注（空格分隔多个关键词）", all_cat: "全部大类",
+    sort_cat: "按大类", sort_name: "按品名", sort_qty_asc: "数量 少→多", sort_qty_desc: "数量 多→少", sort_updated: "最近更新",
+    low_only: "仅显示低于警戒值", add_title: "＋ 新增品目", ph_category: "大类（可新建）", ph_name: "品名 *",
+    add: "添加", ph_filter: "筛选", csv: "导出 CSV", ph_hist: "筛选 品名 / 终端",
+    col_category: "大类", col_name: "品名", col_qty: "数量", col_unit: "单位", col_min: "警戒值", col_note: "备注",
+    col_updated: "更新", col_updated_time: "更新时间", col_by: "更新终端", col_time: "时间", col_device: "终端", col_op: "操作",
+    delete: "删除", delete_item: "删除此品目", details: "编辑详情", uncategorized: "未分类",
+    no_data: "无数据", no_hist: "无记录",
+    showing: "显示 {n} / 共 {total} 项", hist_summary: "共 {n} 条记录（最多显示最新 500 条）", alert_short: "警戒 {v}",
+    st_device: "终端", st_records: "记录 {n} 条", st_folder: "文件夹", st_need_perm: "需要重新授权",
+    st_synced: "同步 {t}", st_syncing: "同步中…", st_unwritten: "未写入文件夹 {n} 条", st_imported: "上次导入 {t}", st_error: "错误：{e}",
+    err_save: "本机保存失败：{e}", err_read: "本机数据读取失败：{e}",
+    no_records: "还没有任何记录", downloaded: "已下载日志文件",
+    import_done: "导入完成：新增 {n} 条记录", import_bad: "，{n} 个文件无法识别",
+    legacy_confirm: "检测到旧版数据 {n} 项，作为新品目追加？",
+    added: "已添加「{name}」", need_name: "请输入品名", dup: "同一大类下已存在该品名", name_empty: "品名不能为空",
+    confirm_del: "删除「{name}」？", ui_to_desktop: "切换到桌面界面", ui_to_mobile: "切换到手机界面",
+    prompt_device: "请输入本终端名称（如 Zhang-PC / Zhang-iPhone），用于区分记录来源：",
+    op_create: "新建（{cat}，数量 {d}）", op_delta: "数量 {d}", op_delete: "删除", empty_val: "（空）",
+  },
+  ja: {
+    title: "在庫管理", tab_view: "閲覧", tab_edit: "編集", tab_hist: "履歴",
+    share: "ログを共有", import: "ログを取込", pick: "同期フォルダを選択", change_folder: "フォルダを変更",
+    perm: "フォルダを再許可", sync: "今すぐ同期",
+    ph_search: "品名・品種・備考で検索（スペース区切りで複数可）", all_cat: "すべての品種",
+    sort_cat: "品種順", sort_name: "品名順", sort_qty_asc: "数量 少→多", sort_qty_desc: "数量 多→少", sort_updated: "最近の更新",
+    low_only: "警告値未満のみ表示", add_title: "＋ 品目を追加", ph_category: "品種（新規入力可）", ph_name: "品名 *",
+    add: "追加", ph_filter: "絞り込み", csv: "CSV出力", ph_hist: "品名・端末で絞り込み",
+    col_category: "品種", col_name: "品名", col_qty: "数量", col_unit: "単位", col_min: "警告値", col_note: "備考",
+    col_updated: "更新", col_updated_time: "更新日時", col_by: "更新端末", col_time: "日時", col_device: "端末", col_op: "操作",
+    delete: "削除", delete_item: "この品目を削除", details: "詳細を編集", uncategorized: "未分類",
+    no_data: "データなし", no_hist: "記録なし",
+    showing: "{total} 件中 {n} 件を表示", hist_summary: "全 {n} 件（最新 500 件まで表示）", alert_short: "警告 {v}",
+    st_device: "端末", st_records: "記録 {n} 件", st_folder: "フォルダ", st_need_perm: "再許可が必要",
+    st_synced: "同期 {t}", st_syncing: "同期中…", st_unwritten: "フォルダ未書込 {n} 件", st_imported: "前回取込 {t}", st_error: "エラー：{e}",
+    err_save: "ローカル保存に失敗：{e}", err_read: "ローカルデータの読込に失敗：{e}",
+    no_records: "まだ記録がありません", downloaded: "ログファイルをダウンロードしました",
+    import_done: "取込完了：{n} 件追加", import_bad: "、{n} 個のファイルを認識できません",
+    legacy_confirm: "旧版データ {n} 件を検出しました。新しい品目として追加しますか？",
+    added: "「{name}」を追加しました", need_name: "品名を入力してください", dup: "同じ品種に同名の品目があります", name_empty: "品名は空にできません",
+    confirm_del: "「{name}」を削除しますか？", ui_to_desktop: "デスクトップ表示に切替", ui_to_mobile: "モバイル表示に切替",
+    prompt_device: "この端末の名前を入力してください（例：Zhang-PC / Zhang-iPhone）。記録の出所の区別に使います：",
+    op_create: "新規（{cat}、数量 {d}）", op_delta: "数量 {d}", op_delete: "削除", empty_val: "（空）",
+  },
+  en: {
+    title: "Inventory", tab_view: "View", tab_edit: "Edit", tab_hist: "History",
+    share: "Share log", import: "Import log", pick: "Select sync folder", change_folder: "Change folder",
+    perm: "Re-authorize folder", sync: "Sync now",
+    ph_search: "Search name / category / note (space-separated keywords)", all_cat: "All categories",
+    sort_cat: "By category", sort_name: "By name", sort_qty_asc: "Qty low→high", sort_qty_desc: "Qty high→low", sort_updated: "Recently updated",
+    low_only: "Below alert level only", add_title: "＋ Add item", ph_category: "Category (new allowed)", ph_name: "Name *",
+    add: "Add", ph_filter: "Filter", csv: "Export CSV", ph_hist: "Filter by name / device",
+    col_category: "Category", col_name: "Name", col_qty: "Qty", col_unit: "Unit", col_min: "Alert level", col_note: "Note",
+    col_updated: "Updated", col_updated_time: "Updated at", col_by: "Updated by", col_time: "Time", col_device: "Device", col_op: "Action",
+    delete: "Delete", delete_item: "Delete this item", details: "Edit details", uncategorized: "Uncategorized",
+    no_data: "No data", no_hist: "No records",
+    showing: "Showing {n} of {total}", hist_summary: "{n} records (latest 500 shown)", alert_short: "Alert {v}",
+    st_device: "Device", st_records: "{n} records", st_folder: "Folder", st_need_perm: "Re-authorization needed",
+    st_synced: "Synced {t}", st_syncing: "Syncing…", st_unwritten: "{n} not written to folder", st_imported: "Last import {t}", st_error: "Error: {e}",
+    err_save: "Local save failed: {e}", err_read: "Failed to read local data: {e}",
+    no_records: "No records yet", downloaded: "Log file downloaded",
+    import_done: "Import done: {n} new records", import_bad: ", {n} file(s) not recognized",
+    legacy_confirm: "Found {n} items from the old version. Add them as new items?",
+    added: "Added \"{name}\"", need_name: "Please enter a name", dup: "An item with this name already exists in this category", name_empty: "Name cannot be empty",
+    confirm_del: "Delete \"{name}\"?", ui_to_desktop: "Switch to desktop layout", ui_to_mobile: "Switch to mobile layout",
+    prompt_device: "Enter a name for this device (e.g. Zhang-PC / Zhang-iPhone) to identify where changes come from:",
+    op_create: "Created ({cat}, qty {d})", op_delta: "Qty {d}", op_delete: "Deleted", empty_val: "(empty)",
+  },
+};
+const LOCALE = { zh: "zh-CN", ja: "ja-JP", en: "en-US" };
+const LS_LANG = "inv_lang";
+let lang = localStorage.getItem(LS_LANG)
+  || ((navigator.language || "").startsWith("ja") ? "ja" : (navigator.language || "").startsWith("zh") ? "zh" : "en");
+if (!I18N[lang]) lang = "zh";
+function t(key, p = {}) {
+  const s = I18N[lang][key] ?? I18N.zh[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (_, k) => p[k] ?? "");
+}
+function applyStatic() {
+  document.documentElement.lang = lang;
+  document.title = t("title");
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  $("lang").value = lang;
+  $("ui-toggle").textContent = t(isMobile ? "ui_to_desktop" : "ui_to_mobile");
+}
+
+/* =====================================================================
+   数据模型：只追加的操作记录（op），按 id 去重合并
+     create {item, f:{category,name,unit,min,note}, d:初始数量}
+     delta  {item, d}           数量增减，相加即可，与顺序无关
+     set    {item, f, v}        按 (ts, dev, id) 排序，后者生效
+     delete {item}              删除标记
+   ===================================================================== */
+const LS_DEV = "inv_device_id", LS_PENDING = "inv_pending_ops", LS_UI = "inv_ui", LS_IMPORT = "inv_last_import";
+const POLL_MS = 15000;
+const FIELDS = { category: "col_category", name: "col_name", unit: "col_unit", min: "col_min", note: "col_note" };
+const OP_TYPES = ["create", "delta", "set", "delete"];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const rand = () => Math.random().toString(36).slice(2, 8);
+const fmt = ts => new Date(ts).toLocaleString(LOCALE[lang], { hour12: false });
+const fmtS = ts => new Date(ts).toLocaleString(LOCALE[lang], { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const lc = (a, b) => String(a).localeCompare(String(b), LOCALE[lang]);
+
+/* ---------- 界面模式：自动判断，可手动切换 ---------- */
+const autoMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+  || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const isMobile = (localStorage.getItem(LS_UI) || (autoMobile ? "mobile" : "desktop")) === "mobile";
+document.body.classList.add(isMobile ? "mobile" : "desktop");
+document.querySelectorAll(".m-only").forEach(el => el.classList.toggle("hidden", !isMobile));
+$("add-box").open = !isMobile;
+applyStatic();
+$("ui-toggle").onclick = e => {
+  e.preventDefault();
+  localStorage.setItem(LS_UI, isMobile ? "desktop" : "mobile");
+  location.reload();
+};
+$("lang").onchange = e => {
+  lang = e.target.value;
+  localStorage.setItem(LS_LANG, lang);
+  applyStatic(); renderAll(); renderStatus();
+};
+
+/* ---------- 终端 ID ---------- */
+let dev = localStorage.getItem(LS_DEV);
+if (!dev) {
+  const name = (prompt(t("prompt_device"), isMobile ? "Phone" : "PC") || "PC")
+    .trim().replace(/[^\w\-]/g, "_") || "PC";
+  dev = `${name}_${rand().slice(0, 4)}`;
+  localStorage.setItem(LS_DEV, dev);
+}
+const newId = () => `${dev}-${Date.now().toString(36)}-${rand()}`;
+
+/* ---------- IndexedDB ---------- */
+let dbPromise = null;
+function db() {
+  if (!dbPromise) dbPromise = new Promise((res, rej) => {
+    const r = indexedDB.open("inv_sync", 2);
+    r.onupgradeneeded = () => {
+      for (const s of ["kv", "ops"]) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s);
+    };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbPromise;
+}
+async function tx(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const tr = d.transaction(store, mode);
+    const req = fn(tr.objectStore(store));
+    tr.oncomplete = () => res(req ? req.result : undefined);
+    tr.onerror = () => rej(tr.error); tr.onabort = () => rej(tr.error);
+  });
+}
+const kvGet = k => tx("kv", "readonly", s => s.get(k));
+const kvSet = (k, v) => tx("kv", "readwrite", s => { s.put(v, k); });
+const putOps = ops => tx("ops", "readwrite", s => { for (const o of ops) s.put(o, o.id); });
+const getAllOps = () => tx("ops", "readonly", s => s.getAll());
+
+/* ---------- 合并 & 计算当前库存 ---------- */
+const known = new Map();
+let allOps = [], state = new Map();
+const cmp = (a, b) => a.ts - b.ts || (a.dev < b.dev ? -1 : a.dev > b.dev ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const validOp = o => o && typeof o.id === "string" && o.item && OP_TYPES.includes(o.type) && typeof o.ts === "number";
+
+async function mergeOps(list) {
+  const fresh = [];
+  for (const o of list) if (validOp(o) && !known.has(o.id)) { known.set(o.id, o); fresh.push(o); }
+  if (fresh.length) await putOps(fresh);
+  return fresh.length;
+}
+
+function rebuild() {
+  allOps = [...known.values()].sort(cmp);
+  state = new Map();
+  for (const op of allOps) {
+    let it = state.get(op.item);
+    if (!it) {
+      it = { id: op.item, category: "", name: "", unit: "", min: null, note: "", qty: 0, deleted: false, updated: 0, by: "" };
+      state.set(op.item, it);
+    }
+    if (op.type === "create") { Object.assign(it, op.f); it.qty += Number(op.d) || 0; }
+    else if (op.type === "delta") it.qty += Number(op.d) || 0;
+    else if (op.type === "set" && op.f in FIELDS) it[op.f] = op.v;
+    else if (op.type === "delete") it.deleted = true;
+    it.updated = op.ts; it.by = op.dev;
+  }
+}
+const items = () => [...state.values()].filter(i => !i.deleted && i.name);
+
+function addOp(op) {
+  op.id = newId(); op.dev = dev; op.ts = Date.now();
+  known.set(op.id, op);
+  putOps([op]).catch(e => { syncErr = t("err_save", { e: e.message }); renderStatus(); });
+  rebuild(); renderAll(); renderStatus();
+  if (dirHandle && hasPerm) scheduleSync(300);
+}
+
+function parseLines(text) {
+  const ops = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    try { const o = JSON.parse(line); if (validOp(o)) ops.push(o); } catch { }
+  }
+  return ops;
+}
+
+/* ---------- 文件夹同步（电脑 Chrome/Edge） ---------- */
+let dirHandle = null, hasPerm = false;
+const fileCache = {};
+let lastSync = null, syncing = false, resyncWanted = false, syncErr = "";
+const ownFile = () => `log_${dev}.jsonl`;
+
+async function readLogs() {
+  const seen = new Set(), incoming = [];
+  for await (const [name, h] of dirHandle.entries()) {
+    if (h.kind !== "file" || !/^log_.*\.jsonl$/i.test(name)) continue;
+    seen.add(name);
+    const f = await h.getFile();
+    const c = fileCache[name];
+    if (c && c.lastModified === f.lastModified && c.size === f.size) continue;
+    const ops = parseLines(await f.text());
+    fileCache[name] = { lastModified: f.lastModified, size: f.size, ids: new Set(ops.map(o => o.id)) };
+    incoming.push(...ops);
+  }
+  for (const k of Object.keys(fileCache)) if (!seen.has(k)) delete fileCache[k];
+  return mergeOps(incoming);
+}
+
+function missingInFolder() {
+  const inFolder = new Set();
+  for (const c of Object.values(fileCache)) for (const id of c.ids) inFolder.add(id);
+  return allOps.filter(o => !inFolder.has(o.id));
+}
+
+async function flushToFolder() {
+  const missing = missingInFolder();
+  if (!missing.length) return;
+  const fh = await dirHandle.getFileHandle(ownFile(), { create: true });
+  const size = (await fh.getFile()).size;
+  const w = await fh.createWritable({ keepExistingData: true });
+  await w.seek(size);
+  await w.write(missing.map(o => JSON.stringify(o)).join("\n") + "\n");
+  await w.close();
+  const f = await fh.getFile();
+  const c = fileCache[ownFile()] || { ids: new Set() };
+  missing.forEach(o => c.ids.add(o.id));
+  c.lastModified = f.lastModified; c.size = f.size;
+  fileCache[ownFile()] = c;
+}
+
+async function sync() {
+  if (!dirHandle || !hasPerm) return;
+  if (syncing) { resyncWanted = true; return; }
+  syncing = true;
+  let added = 0;
+  try {
+    added = await readLogs();
+    if (added) rebuild();
+    await flushToFolder();
+    lastSync = Date.now(); syncErr = "";
+  } catch (e) {
+    syncErr = e.message || String(e);
+    if (e.name === "NotAllowedError" || e.name === "SecurityError") hasPerm = false;
+  } finally {
+    syncing = false;
+    if (added) renderAll();
+    renderStatus();
+    if (resyncWanted) { resyncWanted = false; scheduleSync(100); }
+  }
+}
+let syncTimer = null;
+function scheduleSync(ms) { clearTimeout(syncTimer); syncTimer = setTimeout(sync, ms); }
+
+async function pickFolder() {
+  try {
+    dirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+    await kvSet("dir", dirHandle);
+    hasPerm = true;
+    for (const k of Object.keys(fileCache)) delete fileCache[k];
+    await sync();
+  } catch (e) { if (e.name !== "AbortError") alert(e.message); }
+}
+async function regrant() {
+  if (dirHandle && (await dirHandle.requestPermission({ mode: "readwrite" })) === "granted") {
+    hasPerm = true; await sync();
+  }
+}
+
+/* ---------- 分享 / 导入 ---------- */
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+async function shareLog() {
+  if (!allOps.length) return toast(t("no_records"));
+  const name = ownFile();
+  const text = allOps.map(o => JSON.stringify(o)).join("\n") + "\n";
+  const file = new File([text], name, { type: "text/plain" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; }
+    catch (e) { if (e.name === "AbortError") return; }
+  }
+  download(name, text, "text/plain");
+  toast(t("downloaded"));
+}
+
+async function importFiles(files) {
+  let added = 0, bad = 0;
+  for (const f of files) {
+    const text = await f.text(), s = text.trim();
+    if (s.startsWith("[")) {
+      try {
+        const arr = JSON.parse(s);
+        if (Array.isArray(arr) && arr.every(validOp)) added += await mergeOps(arr);
+        else if (Array.isArray(arr)) importLegacy(arr);
+        else bad++;
+      } catch { bad++; }
+      continue;
+    }
+    const ops = parseLines(text);
+    if (!ops.length) { bad++; continue; }
+    added += await mergeOps(ops);
+  }
+  localStorage.setItem(LS_IMPORT, Date.now());
+  rebuild(); renderAll(); renderStatus();
+  if (dirHandle && hasPerm) scheduleSync(100);
+  toast(t("import_done", { n: added }) + (bad ? t("import_bad", { n: bad }) : ""));
+}
+
+function importLegacy(arr) {
+  const list = arr.filter(i => i && i.name);
+  if (!list.length || !confirm(t("legacy_confirm", { n: list.length }))) return;
+  for (const i of list) addOp({ type: "create", item: newId(),
+    f: { category: i.category || "", name: i.name, unit: i.unit || "", min: i.min ?? null, note: i.note || "" },
+    d: Number(i.qty) || 0 });
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast"); el.textContent = msg; el.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add("hidden"), 3000);
+}
+
+/* ---------- 状态栏 ---------- */
+function renderStatus() {
+  const canPick = !isMobile && !!window.showDirectoryPicker;
+  const parts = [`${t("st_device")} <b>${esc(dev)}</b>`, t("st_records", { n: known.size })];
+  if (dirHandle) {
+    parts.push(`${t("st_folder")} <b>${esc(dirHandle.name)}</b>`);
+    if (!hasPerm) parts.push(`<span class="low">${t("st_need_perm")}</span>`);
+    else {
+      parts.push(lastSync ? t("st_synced", { t: fmtS(lastSync) }) : t("st_syncing"));
+      const m = missingInFolder().length;
+      if (m) parts.push(`<span class="low">${t("st_unwritten", { n: m })}</span>`);
+    }
+  }
+  const li = Number(localStorage.getItem(LS_IMPORT));
+  if (li) parts.push(t("st_imported", { t: fmtS(li) }));
+  if (syncErr) parts.push(`<span class="low">${esc(t("st_error", { e: syncErr }))}</span>`);
+  $("st-text").innerHTML = parts.join(isMobile ? " · " : "　|　");
+  $("status").classList.toggle("ok", !!(dirHandle && hasPerm && !syncErr));
+  $("btn-pick").classList.toggle("hidden", !canPick);
+  $("btn-pick").textContent = t(dirHandle ? "change_folder" : "pick");
+  $("btn-perm").classList.toggle("hidden", !(dirHandle && !hasPerm));
+  $("btn-sync").classList.toggle("hidden", !(dirHandle && hasPerm));
+}
+
+/* ---------- 渲染 ---------- */
+let sortKey = "category", sortDir = 1, editDirty = false;
+const isLow = i => i.min !== "" && i.min != null && i.qty < i.min;
+const emptyHtml = key => `<div class="empty">${t(key)}</div>`;
+const catLabel = c => esc(c || t("uncategorized"));
+
+function categories() { return [...new Set(items().map(i => i.category).filter(Boolean))].sort(lc); }
+function refreshCatSelectors() {
+  const cats = categories();
+  for (const id of ["v-cat", "e-cat"]) {
+    const sel = $(id), cur = sel.value;
+    sel.innerHTML = `<option value="">${t("all_cat")}</option>` + cats.map(c => `<option>${esc(c)}</option>`).join("");
+    sel.value = cats.includes(cur) ? cur : "";
+  }
+  $("cat-list").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
+}
+
+function filterItems(text, cat, lowOnly) {
+  const kw = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return items().filter(i => {
+    if (cat && i.category !== cat) return false;
+    if (lowOnly && !isLow(i)) return false;
+    const hay = `${i.name} ${i.category} ${i.note}`.toLowerCase();
+    return kw.every(k => hay.includes(k));
+  });
+}
+
+function renderView() {
+  const list = filterItems($("v-search").value, $("v-cat").value, $("v-low").checked);
+  list.sort((a, b) => {
+    const x = a[sortKey] ?? "", y = b[sortKey] ?? "";
+    const r = typeof x === "number" && typeof y === "number" ? x - y : lc(x, y);
+    return (r || lc(a.name, b.name)) * sortDir;
+  });
+  $("v-summary").textContent = t("showing", { n: list.length, total: items().length });
+  if (!list.length) { $("v-list").innerHTML = emptyHtml("no_data"); return; }
+
+  if (isMobile) {
+    $("v-list").innerHTML = list.map(i => `<div class="card">
+        <div class="row1"><span class="tag">${catLabel(i.category)}</span>
+          <span class="nm">${esc(i.name)}</span>
+          <span class="qty ${isLow(i) ? "low" : ""}">${i.qty}<small> ${esc(i.unit)}</small></span></div>
+        <div class="sub">${i.min != null && i.min !== "" ? t("alert_short", { v: i.min }) + "　" : ""}${esc(i.note)}</div>
+        <div class="sub muted">${fmtS(i.updated)} · ${esc(i.by)}</div></div>`).join("");
+  } else {
+    const th = (k, key) => k ? `<th data-sort="${k}">${t(key)}${sortKey === k ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>` : `<th>${t(key)}</th>`;
+    $("v-list").innerHTML = `<table><thead><tr>${th("category","col_category")}${th("name","col_name")}${th("qty","col_qty")}${th("","col_unit")}${th("min","col_min")}${th("","col_note")}${th("updated","col_updated")}</tr></thead><tbody>` +
+      list.map(i => `<tr>
+        <td><span class="tag">${catLabel(i.category)}</span></td>
+        <td>${esc(i.name)}</td>
+        <td class="num ${isLow(i) ? "low" : ""}">${i.qty}</td>
+        <td>${esc(i.unit)}</td>
+        <td class="num">${i.min ?? ""}</td>
+        <td>${esc(i.note)}</td>
+        <td>${fmt(i.updated)}<br><span class="muted">${esc(i.by)}</span></td></tr>`).join("") + `</tbody></table>`;
+  }
+}
+
+function renderEdit() {
+  const ae = document.activeElement;
+  if (ae && ae.tagName === "INPUT" && $("e-list").contains(ae)) { editDirty = true; return; }
+  editDirty = false;
+  const list = filterItems($("e-search").value, $("e-cat").value, false)
+    .sort((a, b) => lc(a.category || "", b.category || "") || lc(a.name, b.name));
+  if (!list.length) { $("e-list").innerHTML = emptyHtml("no_data"); return; }
+
+  if (isMobile) {
+    const open = new Set([...$("e-list").querySelectorAll("details[open]")].map(d => d.closest("[data-id]").dataset.id));
+    $("e-list").innerHTML = list.map(i => `<div class="card" data-id="${esc(i.id)}">
+        <div class="row1"><span class="tag">${catLabel(i.category)}</span>
+          <span class="nm">${esc(i.name)}</span><span class="muted">${esc(i.unit)}</span></div>
+        <div class="stepper">
+          <button data-act="dec">−</button>
+          <input data-f="qty" type="number" inputmode="numeric" value="${i.qty}" class="${isLow(i) ? "low" : ""}">
+          <button data-act="inc">＋</button>
+        </div>
+        <details ${open.has(i.id) ? "open" : ""}><summary>${t("details")}</summary><div class="fields">
+          <label>${t("col_category")}</label><input data-f="category" value="${esc(i.category)}" list="cat-list">
+          <label>${t("col_name")}</label><input data-f="name" value="${esc(i.name)}">
+          <label>${t("col_unit")}</label><input data-f="unit" value="${esc(i.unit)}">
+          <label>${t("col_min")}</label><input data-f="min" type="number" inputmode="numeric" value="${i.min ?? ""}">
+          <label>${t("col_note")}</label><input data-f="note" value="${esc(i.note)}">
+          <button class="danger" data-act="del">${t("delete_item")}</button>
+        </div></details></div>`).join("");
+  } else {
+    $("e-list").innerHTML = `<table><thead><tr><th>${t("col_category")}</th><th>${t("col_name")}</th><th>${t("col_qty")}</th><th>${t("col_unit")}</th><th>${t("col_min")}</th><th>${t("col_note")}</th><th></th></tr></thead><tbody>` +
+      list.map(i => `<tr data-id="${esc(i.id)}">
+        <td><input data-f="category" value="${esc(i.category)}" list="cat-list" style="width:110px"></td>
+        <td><input data-f="name" value="${esc(i.name)}"></td>
+        <td><div class="qty-box"><button data-act="dec">−</button>
+          <input data-f="qty" type="number" value="${i.qty}"><button data-act="inc">＋</button></div></td>
+        <td><input data-f="unit" value="${esc(i.unit)}" style="width:60px"></td>
+        <td><input data-f="min" type="number" value="${i.min ?? ""}" style="width:70px"></td>
+        <td><input data-f="note" value="${esc(i.note)}"></td>
+        <td><button class="danger" data-act="del">${t("delete")}</button></td></tr>`).join("") + `</tbody></table>`;
+  }
+}
+
+function describe(op) {
+  if (op.type === "create") return esc(t("op_create", { cat: op.f?.category || t("uncategorized"), d: op.d || 0 }));
+  if (op.type === "delta") return t("op_delta", { d: (op.d > 0 ? "+" : "") + op.d });
+  if (op.type === "set") return `${FIELDS[op.f] ? t(FIELDS[op.f]) : esc(op.f)} → ${esc(op.v ?? t("empty_val"))}`;
+  if (op.type === "delete") return `<span class="low">${t("op_delete")}</span>`;
+  return esc(op.type);
+}
+function renderHist() {
+  const kw = $("h-search").value.trim().toLowerCase();
+  const rows = [];
+  for (let k = allOps.length - 1; k >= 0 && rows.length < 500; k--) {
+    const op = allOps[k], name = state.get(op.item)?.name || "";
+    if (kw && !`${name} ${op.dev}`.toLowerCase().includes(kw)) continue;
+    rows.push(isMobile
+      ? `<div class="hist-card"><b>${esc(name)}</b>　${describe(op)}<div class="muted">${fmtS(op.ts)} · ${esc(op.dev)}</div></div>`
+      : `<tr><td>${fmt(op.ts)}</td><td>${esc(op.dev)}</td><td>${esc(name)}</td><td>${describe(op)}</td></tr>`);
+  }
+  $("h-summary").textContent = t("hist_summary", { n: allOps.length });
+  $("h-list").innerHTML = !rows.length ? emptyHtml("no_hist")
+    : isMobile ? rows.join("")
+    : `<table><thead><tr><th>${t("col_time")}</th><th>${t("col_device")}</th><th>${t("col_name")}</th><th>${t("col_op")}</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+}
+
+function renderAll() { refreshCatSelectors(); renderView(); renderEdit(); renderHist(); }
+
+/* ---------- 事件 ---------- */
+document.querySelectorAll(".tab").forEach(tb => tb.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x === tb));
+  for (const p of ["view", "edit", "hist"]) $("page-" + p).classList.toggle("hidden", tb.dataset.page !== p);
+  window.scrollTo(0, 0);
+  scheduleSync(0);
+});
+
+["v-search", "v-cat", "v-low"].forEach(id => $(id).addEventListener("input", renderView));
+$("v-sort").addEventListener("change", e => { const [k, d] = e.target.value.split(":"); sortKey = k; sortDir = Number(d); renderView(); });
+$("v-list").addEventListener("click", e => {
+  const th = e.target.closest("th[data-sort]"); if (!th) return;
+  const k = th.dataset.sort;
+  sortDir = sortKey === k ? -sortDir : 1; sortKey = k; renderView();
+});
+["e-search", "e-cat"].forEach(id => $(id).addEventListener("input", renderEdit));
+$("h-search").addEventListener("input", renderHist);
+
+$("n-add").onclick = () => {
+  const name = $("n-name").value.trim();
+  if (!name) return alert(t("need_name"));
+  const category = $("n-category").value.trim();
+  if (items().some(i => i.name === name && i.category === category)) return alert(t("dup"));
+  const minV = $("n-min").value;
+  addOp({ type: "create", item: newId(),
+    f: { category, name, unit: $("n-unit").value.trim(), min: minV === "" ? null : Number(minV), note: $("n-note").value.trim() },
+    d: Number($("n-qty").value) || 0 });
+  ["n-name", "n-unit", "n-min", "n-note"].forEach(id => $(id).value = "");
+  $("n-qty").value = 0;
+  toast(t("added", { name }));
+  if (!isMobile) $("n-name").focus();
+};
+$("n-name").addEventListener("keydown", e => { if (e.key === "Enter") $("n-add").click(); });
+
+$("e-list").addEventListener("change", e => {
+  const f = e.target.dataset.f; if (!f) return;
+  const it = state.get(e.target.closest("[data-id]").dataset.id); if (!it) return;
+  let v = e.target.value;
+  if (f === "qty") {
+    const d = (Number(v) || 0) - it.qty;
+    if (d) addOp({ type: "delta", item: it.id, d });
+    return;
+  }
+  if (f === "min") v = v === "" ? null : Number(v); else v = v.trim();
+  if (f === "name" && !v) { alert(t("name_empty")); e.target.value = it.name; return; }
+  if (v !== it[f]) addOp({ type: "set", item: it.id, f, v });
+});
+$("e-list").addEventListener("focusout", () => setTimeout(() => { if (editDirty) renderEdit(); }, 0));
+$("e-list").addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]"); if (!btn) return;
+  const it = state.get(btn.closest("[data-id]").dataset.id); if (!it) return;
+  const act = btn.dataset.act;
+  if (act === "del") { if (confirm(t("confirm_del", { name: it.name }))) addOp({ type: "delete", item: it.id }); }
+  else addOp({ type: "delta", item: it.id, d: act === "inc" ? 1 : -1 });
+});
+
+$("btn-csv").onclick = () => {
+  const head = ["col_category", "col_name", "col_qty", "col_unit", "col_min", "col_note", "col_updated_time", "col_by"].map(k => t(k));
+  const rows = items().map(i => [i.category, i.name, i.qty, i.unit, i.min ?? "", i.note, fmt(i.updated), i.by]
+    .map(v => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","));
+  download(`inventory_${new Date().toISOString().slice(0, 10)}.csv`, "\uFEFF" + [head.join(","), ...rows].join("\r\n"), "text/csv");
+};
+
+$("btn-share").onclick = shareLog;
+$("btn-import").onclick = () => $("file-import").click();
+$("file-import").onchange = e => { const files = [...e.target.files]; e.target.value = ""; if (files.length) importFiles(files); };
+$("btn-pick").onclick = pickFolder;
+$("btn-perm").onclick = regrant;
+$("btn-sync").onclick = sync;
+document.addEventListener("visibilitychange", () => { if (!document.hidden) scheduleSync(0); });
+setInterval(() => { if (!document.hidden) sync(); }, POLL_MS);
+
+/* ---------- 启动 ---------- */
+(async () => {
+  try {
+    for (const o of await getAllOps()) known.set(o.id, o);
+    const legacyPending = JSON.parse(localStorage.getItem(LS_PENDING) || "[]");
+    if (legacyPending.length) { await mergeOps(legacyPending); localStorage.removeItem(LS_PENDING); }
+  } catch (e) { syncErr = t("err_read", { e: e.message || e }); }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  try {
+    dirHandle = (await kvGet("dir")) || null;
+    if (dirHandle) hasPerm = (await dirHandle.queryPermission({ mode: "readwrite" })) === "granted";
+  } catch { dirHandle = null; }
+  rebuild(); renderAll(); renderStatus();
+  if (hasPerm) sync();
+})();
+</script>
+</body>
+</html>
